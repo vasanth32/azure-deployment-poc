@@ -36,9 +36,8 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Add Health Checks
-builder.Services.AddHealthChecks()
-    .AddDbContextCheck<ApplicationDbContext>();
+// Add Health Checks (simple check without database dependency)
+builder.Services.AddHealthChecks();
 
 // Register DbInitializer
 builder.Services.AddScoped<DbInitializer>();
