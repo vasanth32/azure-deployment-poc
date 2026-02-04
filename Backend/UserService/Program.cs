@@ -61,22 +61,26 @@ app.MapControllers();
 // Health check endpoint
 app.MapHealthChecks("/health");
 
-// Ensure database is created and seeded
-using (var scope = app.Services.CreateScope())
+// Ensure database is created and seeded (run asynchronously to not block startup)
+_ = Task.Run(async () =>
 {
-    var services = scope.ServiceProvider;
-    try
+    await Task.Delay(5000); // Wait 5 seconds for app to fully start
+    using (var scope = app.Services.CreateScope())
     {
-        var context = services.GetRequiredService<ApplicationDbContext>();
-        var dbInitializer = services.GetRequiredService<DbInitializer>();
-        dbInitializer.Initialize();
+        var services = scope.ServiceProvider;
+        try
+        {
+            var context = services.GetRequiredService<ApplicationDbContext>();
+            var dbInitializer = services.GetRequiredService<DbInitializer>();
+            dbInitializer.Initialize();
+        }
+        catch (Exception ex)
+        {
+            var logger = services.GetRequiredService<ILogger<Program>>();
+            logger.LogError(ex, "An error occurred while seeding the database.");
+        }
     }
-    catch (Exception ex)
-    {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while seeding the database.");
-    }
-}
+});
 
 app.Run();
 
