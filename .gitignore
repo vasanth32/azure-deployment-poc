@@ -1,5 +1,7 @@
-# Frontend (excluded - only pushing Backend)
+# Excluded folders (we only push Backend + .github workflows)
 Frontend/
+docs/
+AwsApiGateway/
 
 # Build results
 [Dd]ebug/
