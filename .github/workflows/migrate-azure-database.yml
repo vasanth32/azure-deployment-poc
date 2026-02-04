@@ -1,0 +1,50 @@
+name: Run Database Migrations on Azure SQL
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'Backend/**/Migrations/**'
+      - 'Backend/**/Data/**'
+      - 'Backend/**/Models/**'
+
+env:
+  SQL_SERVER: poc-sql-server-20260204074804
+  SQL_DB: poc-db
+  SQL_ADMIN: sqladmin
+
+jobs:
+  migrate-database:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install Entity Framework tools
+        run: dotnet tool install --global dotnet-ef
+
+      - name: Restore UserService dependencies
+        run: dotnet restore Backend/UserService/UserService.csproj
+
+      - name: Restore ProductService dependencies
+        run: dotnet restore Backend/ProductService/ProductService.csproj
+
+      - name: Run UserService migrations
+        run: |
+          CONNECTION_STRING="Server=${{ env.SQL_SERVER }}.database.windows.net,1433;Database=${{ env.SQL_DB }};User Id=${{ env.SQL_ADMIN }};Password=${{ secrets.SQL_PASSWORD }};TrustServerCertificate=True;"
+          cd Backend/UserService
+          dotnet ef database update --connection "$CONNECTION_STRING"
+
+      - name: Run ProductService migrations
+        run: |
+          CONNECTION_STRING="Server=${{ env.SQL_SERVER }}.database.windows.net,1433;Database=${{ env.SQL_DB }};User Id=${{ env.SQL_ADMIN }};Password=${{ secrets.SQL_PASSWORD }};TrustServerCertificate=True;"
+          cd Backend/ProductService
+          dotnet ef database update --connection "$CONNECTION_STRING"
+

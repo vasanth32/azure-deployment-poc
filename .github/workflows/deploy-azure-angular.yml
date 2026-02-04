@@ -1,0 +1,64 @@
+name: Deploy Angular to Azure Static Web Apps
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Frontend/**'
+      - '.github/workflows/deploy-azure-angular.yml'
+  workflow_dispatch:
+
+env:
+  AZURE_RESOURCE_GROUP: poc-deployment-rg
+  STATIC_WEB_APP_NAME: poc-angular-app
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: Frontend/AngularApp/package-lock.json
+      
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+        continue-on-error: true
+      
+      - name: Get Container App URLs
+        id: get-urls
+        run: |
+          USER_URL=$(az containerapp show --name user-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query properties.configuration.ingress.fqdn -o tsv)
+          PRODUCT_URL=$(az containerapp show --name product-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query properties.configuration.ingress.fqdn -o tsv)
+          echo "user_service_url=https://$USER_URL/api" >> $GITHUB_OUTPUT
+          echo "product_service_url=https://$PRODUCT_URL/api" >> $GITHUB_OUTPUT
+        continue-on-error: true
+      
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./Frontend/AngularApp
+      
+      - name: Build Angular app
+        run: npm run build -- --configuration production
+        working-directory: ./Frontend/AngularApp
+        env:
+          API_USER_SERVICE_URL: ${{ steps.get-urls.outputs.user_service_url || secrets.AZURE_USER_SERVICE_URL }}
+          API_PRODUCT_SERVICE_URL: ${{ steps.get-urls.outputs.product_service_url || secrets.AZURE_PRODUCT_SERVICE_URL }}
+      
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: "upload"
+          app_location: "Frontend/AngularApp"
+          output_location: "dist/AngularApp"
+          skip_app_build: true
+
