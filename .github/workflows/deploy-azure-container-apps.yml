@@ -66,8 +66,21 @@ jobs:
           CONNECTION_STRING=$(az sql db show-connection-string \
             --server ${{ env.SQL_SERVER }} \
             --name ${{ env.SQL_DB }} \
-            --client ado.net | sed "s/<username>/${{ env.SQL_ADMIN }}/g" | sed "s/<password>/${{ secrets.SQL_PASSWORD }}/g")
-          echo "connection_string=$CONNECTION_STRING" >> $GITHUB_OUTPUT
+            --client ado.net \
+            -o tsv)
+
+          # Ensure no surrounding quotes slip in (they break shell quoting later).
+          CONNECTION_STRING="${CONNECTION_STRING//\"/}"
+
+          # Replace placeholders safely.
+          CONNECTION_STRING=$(echo "$CONNECTION_STRING" | sed "s/<username>/${{ env.SQL_ADMIN }}/g" | sed "s/<password>/${{ secrets.SQL_PASSWORD }}/g")
+
+          # Write as a multiline-safe output (GitHub recommended format).
+          {
+            echo 'connection_string<<EOF'
+            echo "$CONNECTION_STRING"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
 
       - name: Update UserService Container App
         run: |
